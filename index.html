@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 커리어 서비스</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #e9ecef;
+            color: #333;
+            padding: 5px 10px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+        }
+        #chat-area-wrapper {
+            max-width: 800px;
+            min-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            height: 80vh;
+        }
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 1000px;
+        }
+        .subheader-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .message {
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            align-self: flex-end;
+            background-color: #007bff;
+            color: #fff;
+        }
+        .bot-message {
+            align-self: flex-start;
+            background-color: #e9ecef;
+            color: #333;
+        }
+        #input-area {
+            display: flex;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-top: 1px solid #dee2e6;
+            align-items: center;
+        }
+        #userInput {
+            flex: 1;
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 20px;
+            background-color: #fff;
+            color: #333;
+        }
+        .button-group {
+            display: flex;
+        }        
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        @media (max-width: 767px) {
+            #chat-area-wrapper {
+                min-width: auto;
+                width: 90%;
+                max-width: 100%;
+            }
+            header, #input-area {
+                padding-left: 5px;
+                padding-right: 5px;
+            }
+        }
+        #floatingClearButton {
+            position: fixed;
+            bottom: 20px; 
+            right: 20px; 
+            padding: 15px; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 50%; 
+            cursor: pointer; 
+            z-index: 1000; 
+        }
+        #floatingClearButton:hover {
+            background-color: #0056b3; 
+        }
+        #clearButton {
+            background-color: #6c757d; 
+        }
+        #clearButton:hover {
+            background-color: #5a6268; 
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h4>👩🏻‍🚀커리어에 대해 어떤 고민이 있으신가요?</h4>
+        <p class="subheader-text">
+            <a href="https://www.notion.so/ko-kr" style="color: inherit; text-decoration: underline;">데이터전문가와 상담을 원하시면 클릭해주세요.</a>
+        </p>
+    </header>
+    <div id="chat-area-wrapper">
+        <div id="chat-container">
+        </div>
+        <div id="input-area">
+            <input type="text" id="userInput" placeholder="여기에 질문해주세요.">
+            <div class="button-group">
+                <button onclick="sendMessage()">보내기</button>
+                <button id="clearButton" onclick="clearMessages()">
+                    <i class="fas fa-trash-alt"></i>                
+            </button>         
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function sendMessage() {
+            var message = $("#userInput").val();        
+            if (message.trim() === '') {
+                var errorMessageHtml = '<div class="message bot-message">내용을 입력해주세요</div>';
+                $("#chat-container").append(errorMessageHtml);
+                scrollChatToBottom();
+                return;
+            }
+            var userMessageHtml = '<div class="message user-message">' + message + '</div>';
+            $("#chat-container").append(userMessageHtml);
+            scrollChatToBottom();
+            saveMessageToLocalStorage('user', message);
+            
+            var typingIndicatorHtml = '<div class="message bot-message" id="typingIndicator"> ▪▪▪▪ </div>';
+            $("#chat-container").append(typingIndicatorHtml);
+            scrollChatToBottom();
+
+            $.ajax({
+                url: '/chat',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({"message": message}),
+                success: function(response) {
+                    $("#typingIndicator").remove();
+                    var formattedResponse = response.response.replace(/(\d\.)/g, "<br>");
+                    var botMessageHtml = '<div class="message bot-message">' + formattedResponse + '</div>';
+                    $("#chat-container").append(botMessageHtml);
+                    saveMessageToLocalStorage('bot', response.response);
+                    scrollChatToBottom();
+                },
+                error: function(error) {
+                    console.log("Error:", error);
+                    $("#typingIndicator").text("Error getting response. Please try again.");
+                }
+            });
+            $("#userInput").val('');
+        }
+        function saveMessageToLocalStorage(sender, message) {
+            var chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+            chatHistory.push({ sender: sender, message: message });
+            localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+        }
+        function loadMessagesFromLocalStorage() {
+            var chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
+            chatHistory.forEach(function(chat) {
+                var messageHtml = '<div class="message ' + (chat.sender === 'user' ? 'user-message' : 'bot-message') + '">' + chat.message + '</div>';
+                $("#chat-container").append(messageHtml);
+            });
+        }
+        function clearMessages() {
+            $("#chat-container").empty(); // Clears the chat container
+            localStorage.removeItem('chatHistory'); // Clears chat history from local storage
+        }
+        function scrollChatToBottom() {
+            $("#chat-container").scrollTop($("#chat-container")[0].scrollHeight);
+        }        
+        $(document).ready(function() {
+            console.log("Page loaded. Loading messages from local storage...");
+            loadMessagesFromLocalStorage();
+        });
+        document.getElementById("userInput").addEventListener("keyup", function(event) {
+            if (event.keyCode === 13) {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
+
